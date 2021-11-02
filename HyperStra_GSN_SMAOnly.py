@@ -95,7 +95,7 @@ class HyperStra_GSN_SMAOnly(IStrategy):
                 "method": "StoplossGuard",
                 "lookback_period_candles": 2,
                 "trade_limit": 1,
-                "stop_duration_candles": 2,
+                "stop_duration_candles": 12,
                 "only_per_pair": False
             },
             {
@@ -157,6 +157,8 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
     # ##################################################################
     # HyperSMA
+
+    # normalizer_lenght = IntParameter(low=1, high=400, default=20, space='buy', optimize=True)
 
     # BUY
     buy_1_indicator = CategoricalParameter(categories=sma_timeperiods, default=buy_params['buy_1_indicator'], space='buy', optimize=optimize_hypersma_buy_1_1_sma)
@@ -301,22 +303,22 @@ class HyperStra_GSN_SMAOnly(IStrategy):
             return dataframe[indicator_1].div(dataframe[indicator_2]) >= real_number
 
         if operator == 'normalized_equal_n':
-            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) == real_number
+            return Normalizer(dataframe[indicator_1]) == real_number
 
         if operator == 'normalized_smaller_n':
-            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) < real_number
+            return Normalizer(dataframe[indicator_1]) < real_number
 
         if operator == 'normalized_bigger_n':
-            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) > real_number
+            return Normalizer(dataframe[indicator_1]) > real_number
 
         if operator == 'normalized_devided_equal_n':
-            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) == real_number
+            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) == real_number
 
         if operator == 'normalized_devided_smaller_n':
-            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) < real_number
+            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) < real_number
 
         if operator == 'normalized_devided_bigger_n':
-            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) > real_number
+            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) > real_number
 
 
 # ##################################################################
@@ -326,4 +328,3 @@ class HyperStra_GSN_SMAOnly(IStrategy):
 def Normalizer(df: DataFrame) -> DataFrame:
     df = (df - df.min()) / (df.max() - df.min())
     return df
-
