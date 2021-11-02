@@ -23,6 +23,8 @@ from talib import abstract
 # ###############################################################################
 # ###############################################################################
 
+# MA Indicator ( EMA, SMA, MA, ... )
+MA_Indicator = abstract.SMA
 
 class HyperStra_GSN_SMAOnly(IStrategy):
     INTERFACE_VERSION = 2
@@ -112,7 +114,7 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     timeframe = '5m'
     ignore_roi_if_buy_signal = False
     process_only_new_candles = False
-    startup_candle_count = 300
+    startup_candle_count = 440
 
     sell_profit_only = False
     sell_profit_offset = 0.01
@@ -120,20 +122,17 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
     # ##################################################################
 
-    # MA Indicator ( EMA, SMA, MA, ... )
-    MA_Indicator = abstract.SMA
-
     # #################################
     # Optimiztions HyperSMA BUY
-    optimize_hypersma_buy_1_1_sma = False
-    optimize_hypersma_buy_1_2_sma = False
-    optimize_hypersma_buy_1_3_sma = False
+    optimize_hypersma_buy_1_1_sma = True
+    optimize_hypersma_buy_1_2_sma = True
+    optimize_hypersma_buy_1_3_sma = True
 
     # #################################
     # Optimiztions HyperSMA Sell
-    optimize_hypersma_sell_1_1_sma = False
-    optimize_hypersma_sell_1_2_sma = False
-    optimize_hypersma_sell_1_3_sma = False
+    optimize_hypersma_sell_1_1_sma = True
+    optimize_hypersma_sell_1_2_sma = True
+    optimize_hypersma_sell_1_3_sma = True
 
     # ##################################################################
     # ##################################################################
@@ -302,22 +301,22 @@ class HyperStra_GSN_SMAOnly(IStrategy):
             return dataframe[indicator_1].div(dataframe[indicator_2]) >= real_number
 
         if operator == 'normalized_equal_n':
-            return Normalizer(dataframe[indicator_1]) == real_number
+            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) == real_number
 
         if operator == 'normalized_smaller_n':
-            return Normalizer(dataframe[indicator_1]) < real_number
+            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) < real_number
 
         if operator == 'normalized_bigger_n':
-            return Normalizer(dataframe[indicator_1]) > real_number
+            return Normalizer(dataframe[indicator_1], self.normalizer_lenght.value) > real_number
 
         if operator == 'normalized_devided_equal_n':
-            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) == real_number
+            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) == real_number
 
         if operator == 'normalized_devided_smaller_n':
-            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) < real_number
+            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) < real_number
 
         if operator == 'normalized_devided_bigger_n':
-            return (Normalizer(dataframe[indicator_1]).div(Normalizer(dataframe[indicator_2]))) > real_number
+            return (Normalizer(dataframe[indicator_1], self.normalizer_lenght.value).div(Normalizer(dataframe[indicator_2], self.normalizer_lenght.value))) > real_number
 
 
 # ##################################################################
@@ -327,3 +326,4 @@ class HyperStra_GSN_SMAOnly(IStrategy):
 def Normalizer(df: DataFrame) -> DataFrame:
     df = (df - df.min()) / (df.max() - df.min())
     return df
+
