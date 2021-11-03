@@ -108,7 +108,7 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
 
     # Sell signal
-    use_custom_stoploss = True
+    use_custom_stoploss = False
     use_sell_signal = True
     timeframe = '5m'
     ignore_roi_if_buy_signal = False
@@ -194,37 +194,6 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
     # HyperSMA
     # ##################################################################
-
-    def custom_stoploss(self, pair: str, trade: Trade, current_time: datetime, current_rate: float,
-                        current_profit: float, **kwargs) -> float:
-        df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-        candle = df.iloc[-1].squeeze()
-
-        if current_profit >= 0.09:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.08:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.07:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.06:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.05:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.04:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.03:
-            return stoploss_from_open(+0.005, current_profit)
-
-        if current_profit >= 0.02:
-            return stoploss_from_open(+0.005, current_profit)
-
-        return 1
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # ###############################
