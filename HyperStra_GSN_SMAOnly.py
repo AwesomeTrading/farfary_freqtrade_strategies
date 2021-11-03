@@ -26,7 +26,7 @@ from talib import abstract
 # MA Indicator ( EMA, SMA, MA, ... )
 MA_Indicator = abstract.SMA
 
-class HyperStra_GSN_SMAOnly(IStrategy):
+class xHyperStra_GSN_SMAOnly(IStrategy):
     INTERFACE_VERSION = 2
 
     # ##################################################################
@@ -81,7 +81,7 @@ class HyperStra_GSN_SMAOnly(IStrategy):
 
     # Trailing stop:
     trailing_stop = False
-    trailing_stop_positive = 0.001
+    trailing_stop_positive = 0.005
     trailing_stop_positive_offset = 0.016
     trailing_only_offset_is_reached = True
 
@@ -108,9 +108,8 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
 
     # Sell signal
+    use_custom_stoploss = True
     use_sell_signal = True
-    use_custom_stoploss = False
-
     timeframe = '5m'
     ignore_roi_if_buy_signal = False
     process_only_new_candles = False
@@ -195,6 +194,37 @@ class HyperStra_GSN_SMAOnly(IStrategy):
     # ##################################################################
     # HyperSMA
     # ##################################################################
+
+    def custom_stoploss(self, pair: str, trade: Trade, current_time: datetime, current_rate: float,
+                        current_profit: float, **kwargs) -> float:
+        df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        candle = df.iloc[-1].squeeze()
+
+        if current_profit >= 0.09:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.08:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.07:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.06:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.05:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.04:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.03:
+            return stoploss_from_open(+0.005, current_profit)
+
+        if current_profit >= 0.02:
+            return stoploss_from_open(+0.005, current_profit)
+
+        return 1
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         # ###############################
