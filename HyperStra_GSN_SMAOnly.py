@@ -26,7 +26,7 @@ from talib import abstract
 # MA Indicator ( EMA, SMA, MA, ... )
 MA_Indicator = abstract.SMA
 
-class xHyperStra_GSN_SMAOnly(IStrategy):
+class HyperStra_GSN_SMAOnly(IStrategy):
     INTERFACE_VERSION = 2
 
     # ##################################################################
