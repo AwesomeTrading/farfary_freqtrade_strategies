@@ -21,6 +21,7 @@ from freqtrade.strategy.interface import IStrategy
 
 logger = logging.getLogger(__name__)
 
+
 # ###############################################################################
 # ###############################################################################
 # @Farhad#0318 ( https://github.com/farfary/freqtrade_strategies )
@@ -43,16 +44,16 @@ class MiniLambo(IStrategy):
         "protection_stoplossguard_trade_limit": 3,
     }
 
-    protection_cooldown_period = IntParameter(low=1, high=48, default=1, space="protection", optimize=True)
+    protection_cooldown_period = IntParameter(low=1, high=48, default=protection_params['protection_cooldown_period'], space="protection", optimize=True)
 
-    protection_maxdrawdown_lookback_period_candles = IntParameter(low=1, high=48, default=1, space="protection", optimize=True)
-    protection_maxdrawdown_trade_limit = IntParameter(low=1, high=8, default=4, space="protection", optimize=True)
-    protection_maxdrawdown_stop_duration_candles = IntParameter(low=1, high=48, default=1, space="protection", optimize=True)
-    protection_maxdrawdown_max_allowed_drawdown = DecimalParameter(low=0.01, high=0.20, default=0.1, space="protection", optimize=True)
+    protection_maxdrawdown_lookback_period_candles = IntParameter(low=1, high=48, default=protection_params['protection_maxdrawdown_lookback_period_candles'], space="protection", optimize=True)
+    protection_maxdrawdown_trade_limit = IntParameter(low=1, high=8, default=protection_params['protection_maxdrawdown_trade_limit'], space="protection", optimize=True)
+    protection_maxdrawdown_stop_duration_candles = IntParameter(low=1, high=48, default=protection_params['protection_maxdrawdown_stop_duration_candles'], space="protection", optimize=True)
+    protection_maxdrawdown_max_allowed_drawdown = DecimalParameter(low=0.01, high=0.20, default=protection_params['protection_maxdrawdown_max_allowed_drawdown'], space="protection", optimize=True)
 
-    protection_stoplossguard_lookback_period_candles = IntParameter(low=1, high=48, default=1, space="protection", optimize=True)
-    protection_stoplossguard_trade_limit = IntParameter(low=1, high=8, default=4, space="protection", optimize=True)
-    protection_stoplossguard_stop_duration_candles = IntParameter(low=1, high=48, default=1, space="protection", optimize=True)
+    protection_stoplossguard_lookback_period_candles = IntParameter(low=1, high=48, default=protection_params['protection_stoplossguard_lookback_period_candles'], space="protection", optimize=True)
+    protection_stoplossguard_trade_limit = IntParameter(low=1, high=8, default=protection_params['protection_stoplossguard_trade_limit'], space="protection", optimize=True)
+    protection_stoplossguard_stop_duration_candles = IntParameter(low=1, high=48, default=protection_params['protection_stoplossguard_stop_duration_candles'], space="protection", optimize=True)
 
     @property
     def protections(self):
@@ -304,6 +305,15 @@ def EWO(dataframe, ema_length=5, ema2_length=35):
 
 
 class MiniLambo_TBS(MiniLambo):
+    # Original idea by @MukavaValkku, code by @tirail and @stash86
+    #
+    # This class is designed to inherit from yours and starts trailing buy with your buy signals
+    # Trailing buy starts at any buy signal and will move to next candles if the trailing still active
+    # Trailing buy stops  with BUY if : price decreases and rises again more than trailing_buy_offset
+    # Trailing buy stops with NO BUY : current price is > initial price * (1 +  trailing_buy_max) OR custom_sell tag
+    # IT IS NOT COMPATIBLE WITH BACKTEST/HYPEROPT
+    #
+
     process_only_new_candles = True
 
     custom_info_trail_buy = dict()
