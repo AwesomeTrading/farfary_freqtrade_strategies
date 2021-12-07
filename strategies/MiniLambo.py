@@ -193,14 +193,14 @@ class MiniLambo(IStrategy):
 
     # Buy hyperspace params:
     buy_params = {
+        "lambo2_pct_change_high_period": 109,
+        "lambo2_pct_change_high_ratio": -0.235,
+        "lambo2_pct_change_low_period": 20,
+        "lambo2_pct_change_low_ratio": -0.06,
         "lambo2_ema_14_factor": 0.981,
-        "lambo2_rsi_4_limit": 44,
         "lambo2_rsi_14_limit": 39,
         "lambo2_rsi_21_limit": 39,
-        "lambo2_pct_change_low_period": 5,
-        "lambo2_pct_change_low_ratio": -0.019,
-        "lambo2_pct_change_high_period": 108,
-        "lambo2_pct_change_high_ratio": -0.011
+        "lambo2_rsi_4_limit": 44,
     }
 
     # lambo2
