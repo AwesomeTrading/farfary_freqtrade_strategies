@@ -16,11 +16,10 @@ from skopt.space import Dimension, Integer
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 from freqtrade.persistence import Trade
 from freqtrade.strategy import (BooleanParameter, DecimalParameter,
-                                IntParameter, merge_informative_pair)
+                                IntParameter, merge_informative_pair, stoploss_from_open)
 from freqtrade.strategy.interface import IStrategy
 
 logger = logging.getLogger(__name__)
-
 
 # ###############################################################################
 # ###############################################################################
@@ -29,7 +28,6 @@ logger = logging.getLogger(__name__)
 # Based on buy signal from Al (alb#1349)
 # ###############################################################################
 # ###############################################################################
-
 
 class MiniLambo(IStrategy):
     # Protection hyperspace params:
@@ -118,6 +116,27 @@ class MiniLambo(IStrategy):
                 Integer(1, 30, name='roi_t6'),
             ]
 
+    # Buy hyperspace params:
+    buy_params = {
+        "lambo2_ema_14_factor": 1.053,
+        "lambo2_pct_change_high_period": 80,
+        "lambo2_pct_change_high_ratio": -0.175,
+        "lambo2_pct_change_low_period": 60,
+        "lambo2_pct_change_low_ratio": -0.05,
+        "lambo2_rsi_14_limit": 54,
+        "lambo2_rsi_21_limit": 43,
+        "lambo2_rsi_4_limit": 53
+    }
+
+    # Sell hyperspace params:
+    sell_params = {
+        "pHSL": -0.158,
+        "pPF_1": 0.012,
+        "pPF_2": 0.079,
+        "pSL_1": 0.009,
+        "pSL_2": 0.064
+    }
+
     # ROI table:
     minimal_roi = {
         "0": 0.05,
@@ -139,6 +158,10 @@ class MiniLambo(IStrategy):
     trailing_only_offset_is_reached = False
 
     timeframe = '1m'
+    timeframe_info_15m = '15m'
+    timeframe_info_1h = '1h'
+    timeframe_info_4h = '4h'
+    timeframe_info_1d = '1d'
 
     use_sell_signal = False
     sell_profit_only = False
@@ -147,108 +170,143 @@ class MiniLambo(IStrategy):
     process_only_new_candles = True
     startup_candle_count = 200
 
-    plot_config = {
-        "main_plot": {
-            "ema_14": {
-                "color": "#888b48",
-                "type": "line"
-            },
-            "buy_sell": {
-                "sell_tag": {"color": "red"},
-                "buy_tag": {"color": "blue"},
-            },
-        },
-        "subplots": {
-            "rsi4": {
-                "rsi_4": {
-                    "color": "#888b48",
-                    "type": "line"
-                }
-            },
-            "rsi14": {
-                "rsi_14": {
-                    "color": "#888b48",
-                    "type": "line"
-                }
-            },
-            "cti": {
-                "cti": {
-                    "color": "#573892",
-                    "type": "line"
-                }
-            },
-            "ewo": {
-                "EWO": {
-                    "color": "#573892",
-                    "type": "line"
-                }
-            },
-            "pct_change": {
-                "pct_change": {
-                    "color": "#26782f",
-                    "type": "line"
-                }
-            }
-        }
-    }
 
-    # Buy hyperspace params:
-    buy_params = {
-        "lambo2_pct_change_high_period": 109,
-        "lambo2_pct_change_high_ratio": -0.235,
-        "lambo2_pct_change_low_period": 20,
-        "lambo2_pct_change_low_ratio": -0.06,
-        "lambo2_ema_14_factor": 0.981,
-        "lambo2_rsi_14_limit": 39,
-        "lambo2_rsi_21_limit": 39,
-        "lambo2_rsi_4_limit": 44,
-    }
+    # hard stoploss profit
+    pHSL = DecimalParameter(-0.500, -0.040, default=-0.08, decimals=3, space='sell', load=True, optimize=True)
+    # profit threshold 1, trigger point, SL_1 is used
+    pPF_1 = DecimalParameter(0.008, 0.020, default=0.016, decimals=3, space='sell', load=True, optimize=True)
+    pSL_1 = DecimalParameter(0.008, 0.020, default=0.011, decimals=3, space='sell', load=True, optimize=True)
+
+    # profit threshold 2, SL_2 is used
+    pPF_2 = DecimalParameter(0.040, 0.100, default=0.080, decimals=3, space='sell', load=True, optimize=True)
+    pSL_2 = DecimalParameter(0.020, 0.070, default=0.040, decimals=3, space='sell', load=True, optimize=True)
+
 
     # lambo2
     lambo2_ema_14_factor = DecimalParameter(0.8, 1.2, decimals=3, default=buy_params['lambo2_ema_14_factor'], space='buy', optimize=False)
-    lambo2_rsi_4_limit = IntParameter(5, 60, default=buy_params['lambo2_rsi_4_limit'], space='buy', optimize=False)
-    lambo2_rsi_14_limit = IntParameter(5, 60, default=buy_params['lambo2_rsi_14_limit'], space='buy', optimize=False)
-    lambo2_rsi_21_limit = IntParameter(5, 60, default=buy_params['lambo2_rsi_21_limit'], space='buy', optimize=False)
+    lambo2_rsi_4_limit = IntParameter(5, 60, default=buy_params['lambo2_rsi_4_limit'], space='buy', optimize=True)
+    lambo2_rsi_14_limit = IntParameter(5, 60, default=buy_params['lambo2_rsi_14_limit'], space='buy', optimize=True)
+    lambo2_rsi_21_limit = IntParameter(5, 80, default=buy_params['lambo2_rsi_21_limit'], space='buy', optimize=True)
 
     lambo2_pct_change_low_period = IntParameter(1, 60, default=buy_params['lambo2_pct_change_low_period'], space='buy', optimize=True)
     lambo2_pct_change_low_ratio = DecimalParameter(low=-0.20, high=-0.01, decimals=3, default=buy_params['lambo2_pct_change_low_ratio'], space='buy', optimize=True)
 
-    lambo2_pct_change_high_period = IntParameter(1, 180, default=buy_params['lambo2_pct_change_high_period'], space='buy', optimize=True)
-    lambo2_pct_change_high_ratio = DecimalParameter(low=-0.30, high=-0.01, decimals=3, default=buy_params['lambo2_pct_change_high_ratio'], space='buy', optimize=True)
+    lambo2_pct_change_high_period = IntParameter(1, 180, default=buy_params['lambo2_pct_change_high_period'], space='buy', optimize=False)
+    lambo2_pct_change_high_ratio = DecimalParameter(low=-0.30, high=-0.01, decimals=3, default=buy_params['lambo2_pct_change_high_ratio'], space='buy', optimize=False)
+
+
+    # btc safe
+    # btc_1h_rsi_21 = IntParameter(10, 90, default=buy_params['btc_1h_rsi_21'], space='buy', optimize=True)
+
+
+
+    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
+        # hard stoploss profit
+        HSL = self.pHSL.value
+        PF_1 = self.pPF_1.value
+        SL_1 = self.pSL_1.value
+        PF_2 = self.pPF_2.value
+        SL_2 = self.pSL_2.value
+
+        # For profits between PF_1 and PF_2 the stoploss (sl_profit) used is linearly interpolated
+        # between the values of SL_1 and SL_2. For all profits above PL_2 the sl_profit value
+        # rises linearly with current profit, for profits below PF_1 the hard stoploss profit is used.
+
+        if (current_profit > PF_2):
+            sl_profit = SL_2 + (current_profit - PF_2)
+        elif (current_profit > PF_1):
+            sl_profit = SL_1 + ((current_profit - PF_1) * (SL_2 - SL_1) / (PF_2 - PF_1))
+        else:
+            sl_profit = HSL
+
+        # Only for hyperopt invalid return
+        if (sl_profit >= current_profit):
+            return -0.99
+
+        return stoploss_from_open(sl_profit, current_profit)
+
+    # def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
+    #     sl_new = 1
+    #
+    #     if (current_profit > 0.2):
+    #         sl_new = 0.05
+    #     elif (current_profit > 0.1):
+    #         sl_new = 0.03
+    #     elif (current_profit > 0.06):
+    #         sl_new = 0.02
+    #     elif (current_profit > 0.03):
+    #         sl_new = 0.015
+    #     elif (current_profit > 0.015):
+    #         sl_new = 0.0075
+    #
+    #     return sl_new
 
     def informative_pairs(self):
         pairs = self.dp.current_whitelist()
         informative_pairs = [(pair, '1h') for pair in pairs]
-        informative_pairs += [("BTC/USDT", "1m")]
         informative_pairs += [("BTC/USDT", "1d")]
-
+        informative_pairs += [("BTC/USDT", "4h")]
+        informative_pairs += [("BTC/USDT", "1h")]
         return informative_pairs
 
-    def custom_stoploss(self, pair: str, trade: 'Trade', current_time: datetime, current_rate: float, current_profit: float, **kwargs) -> float:
-        sl_new = 1
+    def pop_df_btc_1d(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        btc_1d_df = self.dp.get_pair_dataframe("BTC/USDT", '1d')
+        btc_1d_df['rsi_21'] = ta.RSI(btc_1d_df, timeperiod=21)
+        return btc_1d_df
 
-        if (current_profit > 0.2):
-            sl_new = 0.05
-        elif (current_profit > 0.1):
-            sl_new = 0.03
-        elif (current_profit > 0.06):
-            sl_new = 0.02
-        elif (current_profit > 0.03):
-            sl_new = 0.015
-        elif (current_profit > 0.015):
-            sl_new = 0.0075
+    def pop_df_btc_4h(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        btc_4h_df = self.dp.get_pair_dataframe("BTC/USDT", '4h')
+        btc_4h_df['rsi_21'] = ta.RSI(btc_4h_df, timeperiod=21)
+        return btc_4h_df
 
-        return sl_new
+    def pop_df_btc_1h(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        btc_1h_df = self.dp.get_pair_dataframe("BTC/USDT", '1h')
+        return btc_1h_df
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def informative_indicators_1d(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        informative_1d = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.timeframe_info_1d)
+        return informative_1d
+
+    def informative_indicators_4h(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        informative_4h = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.timeframe_info_4h)
+        return informative_4h
+
+    def informative_indicators_1h(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        informative_1h = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.timeframe_info_1h)
+        informative_1h['rsi_21'] = ta.RSI(dataframe, timeperiod=21)
+        return informative_1h
+
+    def informative_indicators_15m(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        informative_15m = self.dp.get_pair_dataframe(pair=metadata['pair'], timeframe=self.timeframe_info_15m)
+        return informative_15m
+
+    def normal_tf_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe['ema_14'] = ta.EMA(dataframe, timeperiod=14)
         dataframe['rsi_4'] = ta.RSI(dataframe, timeperiod=4)
         dataframe['rsi_14'] = ta.RSI(dataframe, timeperiod=14)
         dataframe['rsi_21'] = ta.RSI(dataframe, timeperiod=21)
-        dataframe['rsi_100'] = ta.RSI(dataframe, timeperiod=100)
 
-        dataframe['cti'] = pta.cti(dataframe["close"], length=20)
-        dataframe['ewo'] = EWO(dataframe, 50, 200)
+        return dataframe
+
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        # BTC 1D DataFrame
+        # dataframe = merge_informative_pair(dataframe, self.pop_df_btc_1d(dataframe, metadata), self.timeframe, '1d', ffill=True)
+        # # BTC 4H DataFrame
+        # dataframe = merge_informative_pair(dataframe, self.pop_df_btc_4h(dataframe, metadata), self.timeframe, '4h', ffill=True)
+        # # BTC 1H DataFrame
+        # dataframe = merge_informative_pair(dataframe, self.pop_df_btc_1h(dataframe, metadata), self.timeframe, '1h', ffill=True)
+
+        # Main Pair DataFrame
+        dataframe = self.normal_tf_indicators(dataframe, metadata)
+        # informative_15m = self.informative_indicators_15m(dataframe, metadata)
+        # informative_1h = self.informative_indicators_1h(dataframe, metadata)
+        # informative_4h = self.informative_indicators_4h(dataframe, metadata)
+        # informative_1d = self.informative_indicators_1d(dataframe, metadata)
+        #
+        # dataframe = merge_informative_pair(dataframe, informative_15m, self.timeframe, self.timeframe_info_15m, ffill=True)
+        # dataframe = merge_informative_pair(dataframe, informative_1h, self.timeframe, self.timeframe_info_1h, ffill=True)
+        # dataframe = merge_informative_pair(dataframe, informative_4h, self.timeframe, self.timeframe_info_4h, ffill=True)
+        # dataframe = merge_informative_pair(dataframe, informative_1d, self.timeframe, self.timeframe_info_1d, ffill=True)
 
         return dataframe
 
@@ -260,9 +318,12 @@ class MiniLambo(IStrategy):
                 (dataframe['close'] < (dataframe['ema_14'] * self.lambo2_ema_14_factor.value))
                 & (dataframe['rsi_4'] < int(self.lambo2_rsi_4_limit.value))
                 & (dataframe['rsi_14'] < int(self.lambo2_rsi_14_limit.value))
+                & (dataframe['rsi_21'] < int(self.lambo2_rsi_21_limit.value))
+                & (dataframe['low'].pct_change(periods=self.lambo2_pct_change_low_period.value) < float(self.lambo2_pct_change_low_ratio.value))
+
                 # & (dataframe['rsi_21'] > int(self.lambo2_rsi_21_limit.value))
-                & (dataframe['close'].pct_change(periods=self.lambo2_pct_change_low_period.value) < float(self.lambo2_pct_change_low_ratio.value))
-                & (dataframe['close'].pct_change(periods=self.lambo2_pct_change_high_period.value) > float(self.lambo2_pct_change_high_ratio.value))
+                # & (dataframe['low'].pct_change(periods=self.lambo2_pct_change_high_period.value) > float(self.lambo2_pct_change_high_ratio.value))
+                # & (dataframe['btc_rsi_21_1h'] > self.btc_1h_rsi_21.value)
         )
         dataframe.loc[lambo2, 'buy_tag'] += 'lambo2 '
         conditions.append(lambo2)
@@ -278,31 +339,6 @@ class MiniLambo(IStrategy):
                            current_time: datetime, **kwargs) -> bool:
         trade.sell_reason = f'{sell_reason} ({trade.buy_tag})'
         return True
-
-
-def bollinger_bands(stock_price, window_size, num_of_std):
-    rolling_mean = stock_price.rolling(window=window_size).mean()
-    rolling_std = stock_price.rolling(window=window_size).std()
-    lower_band = rolling_mean - (rolling_std * num_of_std)
-    return np.nan_to_num(rolling_mean), np.nan_to_num(lower_band)
-
-
-def ha_typical_price(bars):
-    res = (bars['ha_high'] + bars['ha_low'] + bars['ha_close']) / 3.
-    return Series(index=bars.index, data=res)
-
-
-def pct_change(a, b):
-    return (b - a) / a
-
-
-def EWO(dataframe, ema_length=5, ema2_length=35):
-    df = dataframe.copy()
-    ema1 = ta.EMA(df, timeperiod=ema_length)
-    ema2 = ta.EMA(df, timeperiod=ema2_length)
-    emadif = (ema1 - ema2) / df['low'] * 100
-    return emadif
-
 
 class MiniLambo_TBS(MiniLambo):
     # Original idea by @MukavaValkku, code by @tirail and @stash86
@@ -539,3 +575,25 @@ class MiniLambo_TBS(MiniLambo):
                     # dataframe['buy'] = 1
 
         return dataframe
+
+def EWO(dataframe, ema_length=5, ema2_length=35):
+    df = dataframe.copy()
+    ema1 = ta.EMA(df, timeperiod=ema_length)
+    ema2 = ta.EMA(df, timeperiod=ema2_length)
+    emadif = (ema1 - ema2) / df['low'] * 100
+    return emadif
+
+# def bollinger_bands(stock_price, window_size, num_of_std):
+#     rolling_mean = stock_price.rolling(window=window_size).mean()
+#     rolling_std = stock_price.rolling(window=window_size).std()
+#     lower_band = rolling_mean - (rolling_std * num_of_std)
+#     return np.nan_to_num(rolling_mean), np.nan_to_num(lower_band)
+#
+#
+# def ha_typical_price(bars):
+#     res = (bars['ha_high'] + bars['ha_low'] + bars['ha_close']) / 3.
+#     return Series(index=bars.index, data=res)
+#
+#
+# def pct_change(a, b):
+#     return (b - a) / a
